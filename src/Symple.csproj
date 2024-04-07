@@ -14,10 +14,15 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>Daniël Knippers</Authors>
     <Copyright>© $(Authors)</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/dknippers/Symple</PackageProjectUrl>
     <RepositoryUrl>https://github.com/dknippers/Symple</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
+
+  <ItemGroup Label="NuGet Package files">
+    <None Include="$(MSBuildProjectDir)..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>
