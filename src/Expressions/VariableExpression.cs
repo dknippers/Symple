@@ -82,17 +82,23 @@ public class VariableExpression : IExpression
     {
         var value = GetValue(variables);
 
+        if (value is null)
+        {
+            return false;
+        }
+
         return value switch
         {
-            bool b => b,
-            int i => i != 0,
-            long l => l != 0L,
-            float f => f != 0f,
-            double d => d != 0d,
-            decimal c => c != 0m,
-            ICollection coll => coll.Count > 0,
-            _ => !string.IsNullOrEmpty(value?.ToString()),
+            IEnumerable e => e.Cast<object?>().Any(),
+            _ => !value.Equals(GetDefaultValue(value.GetType())),
         };
+
+        static object? GetDefaultValue(Type t)
+        {
+            return t.IsValueType
+                ? Activator.CreateInstance(t)
+                : null;
+        }
     }
 
     public override string ToString()
