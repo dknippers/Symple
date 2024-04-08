@@ -5,9 +5,9 @@ A templating engine focused on simplicity.
 It has the following features:
 
 - Variables
-  - `$var` or `$[var]`    
+  - `$var` or `$[var]`
   - `$var.a.b.c` for nested objects.
-- Conditionals  
+- Conditionals
   - `?[ condition ] { if } { else }`
   - or without the else
   - `?[ condition ] { if }`
@@ -16,37 +16,40 @@ It has the following features:
   - Variable `$xs` must implement `IEnumerable`, i.e. pretty much every .NET collection class will work.
 - Logical operators - operands are evaluated as `bool`.
   - `!`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Logical NOT
-  - `&&`&nbsp;&nbsp;&nbsp;Logical AND 
-  - `||`&nbsp;&nbsp;&nbsp;Logical OR    
+  - `&&`&nbsp;&nbsp;&nbsp;Logical AND
+  - `||`&nbsp;&nbsp;&nbsp;Logical OR
 - Comparison operators - operands are evaluated as `string`.
-  - `==`&nbsp;&nbsp;&nbsp;Equal        
+  - `==`&nbsp;&nbsp;&nbsp;Equal
   - `!=`&nbsp;&nbsp;&nbsp;Not Equal
 - Grouping in a condition to override default operator precedence
   - e.g. `?[ $a && ($b || $c) ]`
 
 ## Types
+
 You can pass any .NET type as a variable to the template but keep in mind when rendering a variable Symple will call `.ToString()` on it so using anything other than a `string` as the final expression can lead to unwanted output. For example, an `int[]` variable would be rendered as `System.Int32[]` which is unlikely what you want.
 
 ## Implicit bool conversion
+
 Any variable can be used directly in the conditional expression, i.e. `?[ $var ] { ... }` is valid syntax for any variable. For any type other than `bool` we will convert the variable's value to a `bool` by these rules:
 
-- `null`: `false`    
-- Any `IEnumerable` e: `e.Any()` 
-    - Note `string` is also an `IEnumerable` of `char` and hence is `true` unless it is `""`.
+- `null`: `false`
+- `string` s: `s.Length > 0`
+- `IEnumerable` e: `e.Any()`
 - Any other value v with type T: `!v.Equals(default(T))`.
   - Any numeric type (`int` / `float` etc) is `true` when not `0`.
   - `char` is true when not `\0`.
   - Any reference type is `true` when not `null`.
 
 ## Basic usage
+
 ```csharp
 var template = "$person.Name's father was $person.Father.Name.";
 
 var variables = new Dictionary<string, object?>
 {
-    ["person"] = new 
-    { 
-        Name = "Stephen", 
+    ["person"] = new
+    {
+        Name = "Stephen",
         Father = new {  Name = "Frank" }
     }
 };
@@ -61,6 +64,7 @@ var output = Symple.Parser
 ## Complete example
 
 The sample below uses all available functionality of Symple. A few things to note:
+
 - You can use collections like `$planet.Moons` in a conditional `?[ $planet.Moons ]` which evaluates to `true` if the collection has at least 1 element.
 - Similarly, a `string` can also be used in a condition and will evaluate to `true` if it has a length of at least 1.
 
@@ -79,12 +83,12 @@ var template = @"
 </ul>";
 
 var variables = new Dictionary<string, object?>
-{   
+{
     ["planets"] = new[]
     {
         new { Name = "Earth", Moons = new[] { "Moon" } },
         new { Name = "Mars", Moons = new[] { "Phobos", "Deimos" } },
-        new { Name = "Venus", Moons = new string[0] { /* Venus has no moons */ } }        
+        new { Name = "Venus", Moons = new string[0] { /* Venus has no moons */ } }
     },
 };
 
@@ -116,4 +120,3 @@ var output = Symple.Parser
 //     </li>
 // </ul>
 ```
-
