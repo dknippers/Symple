@@ -89,6 +89,8 @@ public class VariableExpression : IExpression
 
         return value switch
         {
+            bool b => b,
+            string s => s.Length > 0,
             IEnumerable e => e.Cast<object?>().Any(),
             _ => !value.Equals(GetDefaultValue(value.GetType())),
         };
