@@ -22,7 +22,8 @@ public class LoopExpression : IExpression
     {
         if (Collection.GetValue(variables) is not IEnumerable enumerable)
         {
-            throw new InvalidOperationException("Loop collection must be an IEnumerable");
+            // If the Collection cannot be enumerated we render nothing.
+            return "";
         }
 
         var sb = new StringBuilder();

@@ -48,12 +48,13 @@ public class Parser
                 break;
             }
 
-            char? next = _index < _length - 1 ? _input[_index + 1] : null;
+            char? next = CharAt(_index + 1);
             IExpression expression = c switch
             {
                 char ch when IsStartOfVariable(ch, next) => ParseVariable(),
                 char ch when IsStartOfConditional(ch, next) => ParseConditional(),
                 char ch when IsStartOfLoop(ch, next) => ParseLoop(),
+                char ch when IsStartOfCount(ch, next, CharAt(_index + 2)) => ParseCount(),
                 _ => ParseString(terminator, specialChars),
             };
 
@@ -63,6 +64,11 @@ public class Parser
         return expressions.Count == 1
             ? expressions[0] // Unbox single expressions
             : new CompositeExpression(expressions.ToArray());
+    }
+
+    private char? CharAt(int index)
+    {
+        return index < _length ? _input[index] : null;
     }
 
     private IExpression ParseInterpolatedString()
@@ -98,7 +104,7 @@ public class Parser
 
     private static class SpecialChars
     {
-        public static readonly char[] Default = new[] { '$', '?', '@', '\\' };
+        public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
         public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
         public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
     }
@@ -152,11 +158,12 @@ public class Parser
                 continue;
             }
 
-            char? next = idx < _length - 1 ? _input[idx + 1] : null;
+            char? next = CharAt(idx + 1);
             if (c == terminator ||
                 IsStartOfConditional(c, next) ||
                 IsStartOfLoop(c, next) ||
-                IsStartOfVariable(c, next))
+                IsStartOfVariable(c, next) ||
+                IsStartOfCount(c, next, CharAt(idx + 2)))
             {
                 _ = sb.Append(_input[start..idx]);
                 _index = idx;
@@ -246,6 +253,11 @@ public class Parser
         return c == '@' && next == '[';
     }
 
+    private static bool IsStartOfCount(char c, char? next, char? nextNext)
+    {
+        return next is not null && c == '#' && IsStartOfVariable(next.Value, nextNext);
+    }
+
     private LoopExpression ParseLoop()
     {
         Read('@');
@@ -259,6 +271,13 @@ public class Parser
         Read(CLOSE);
 
         return new LoopExpression(identifier, collection, template);
+    }
+
+    private CountExpression ParseCount()
+    {
+        Read('#');
+        var collection = ParseVariable();
+        return new CountExpression(collection);
     }
 
     private ConditionalExpression ParseConditional()
@@ -368,8 +387,9 @@ public class Parser
             '(' => ParseGroup(),
             '$' => ParseVariable(),
             '?' => ParseConditional(),
+            '#' => ParseCount(),
             '"' => ParseInterpolatedString(),
-            _ => throw ParseException("Expected '!', '(', '$', '?' or '\"'"),
+            _ => throw ParseException("Expected '!', '(', '$', '?', '#' or '\"'"),
         };
     }
 
