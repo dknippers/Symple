@@ -40,6 +40,38 @@ Any variable can be used directly in the conditional expression, i.e. `?[ $var ]
   - `char` is true when not `\0`.
   - Any reference type is `true` when not `null`.
 
+## Conditional expression
+
+The conditional expression `?[ condition ] { if } { else }` allows the following expressions as `condition`, where any expression will be implicitly converted to `bool` if it isn't naturally:
+
+- Variables
+  - `?[ $x ]`
+  - See in "Implicit bool conversion" how variables are converted to `bool`.
+- Interpolated strings
+  - `?[ "$x in a string" ]`
+  - Note unlike in the template itself it requires `"` delimiters.
+- Integers
+  - `?[ 1 ]`
+  - Integers evaluate to `true` unless equal to `0`.
+- Logical expressions
+  - `?[ $a && $b ]`
+  - `?[ !$a ]`
+  - `?[ !$a && ($b || $c) ]`
+  - Note, this evaluates operands as `bool`
+- Comparisons
+  - `?[ $a == "value"]`
+  - `?[ $b != "other" ]`
+  - Note, this evaluates operands as `string`
+- Nested conditionals
+  - `?[ ?[$a]{$b}{$c} ]`
+    - This condition evaluates `$b` if `$a` is true, otherwise `$c`.
+    - Based on `$b` or `$c` the `if` or `else` branch of the original conditional is executed.
+  - Possible, though potentially confusing
+- Count operator
+  - `?[ #$items == 1 ]`
+
+All the above expressions can be infinitely combined using the various operators.
+
 ## Basic usage
 
 ```csharp
