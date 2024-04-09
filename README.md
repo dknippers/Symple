@@ -8,11 +8,11 @@ It has the following features:
   - `$var` or `$[var]`
   - `$var.a.b.c` for nested objects.
 - Conditionals
-  - `?[ condition ] { if } { else }`
+  - `?[condition] {if} {else}`
   - or without the else
-  - `?[ condition ] { if }`
+  - `?[condition] {if}`
 - Loops
-  - `@[ $x : $xs ] { use $x here }`
+  - `@[$x:$xs] {use $x here}`
   - Variable `$xs` must implement `IEnumerable`, i.e. pretty much every .NET collection class will work.
 - Logical operators - operands are evaluated as `bool`.
   - `!`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Logical NOT
@@ -22,7 +22,11 @@ It has the following features:
   - `==`&nbsp;&nbsp;&nbsp;Equal
   - `!=`&nbsp;&nbsp;&nbsp;Not Equal
 - Grouping in a condition to override default operator precedence
-  - e.g. `?[ $a && ($b || $c) ]`
+  - e.g. `?[$a && ($b || $c)]`
+- Collection count
+  - `?[#$items==1]{exactly 1 item}`
+    - Evaluates to the length of the `IEnumerable` variable as an integer.
+    - If the variable is not an `IEnumerable` will evaluate to `""` / `false`.
 
 ## Types
 
@@ -30,7 +34,7 @@ You can pass any .NET type as a variable to the template but keep in mind when r
 
 ## Implicit bool conversion
 
-Any variable can be used directly in the conditional expression, i.e. `?[ $var ] { ... }` is valid syntax for any variable. For any type other than `bool` we will convert the variable's value to a `bool` by these rules:
+Any variable can be used directly in the conditional expression, i.e. `?[$var] { ... }` is valid syntax for any variable. For any type other than `bool` we will convert the variable's value to a `bool` by these rules:
 
 - `null`: `false`
 - `string` s: `s.Length > 0`
@@ -42,33 +46,33 @@ Any variable can be used directly in the conditional expression, i.e. `?[ $var ]
 
 ## Conditional expression
 
-The conditional expression `?[ condition ] { if } { else }` allows the following expressions as `condition`, where any expression will be implicitly converted to `bool` if it isn't naturally:
+The conditional expression `?[condition] {if} {else}` allows the following expressions as `condition`, where any expression will be implicitly converted to `bool` if it isn't naturally:
 
 - Variables
-  - `?[ $x ]`
+  - `?[$x]`
   - See in "Implicit bool conversion" how variables are converted to `bool`.
 - Interpolated strings
-  - `?[ "$x in a string" ]`
+  - `?["$x in a string"]`
   - Note unlike in the template itself it requires `"` delimiters.
 - Integers
-  - `?[ 1 ]`
+  - `?[1]`
   - Integers evaluate to `true` unless equal to `0`.
 - Logical expressions
-  - `?[ $a && $b ]`
-  - `?[ !$a ]`
-  - `?[ !$a && ($b || $c) ]`
+  - `?[$a && $b]`
+  - `?[!$a]`
+  - `?[!$a && ($b || $c)]`
   - Note, this evaluates operands as `bool`
 - Comparisons
-  - `?[ $a == "value"]`
-  - `?[ $b != "other" ]`
+  - `?[$a == "value"]`
+  - `?[$b != "other"]`
   - Note, this evaluates operands as `string`
 - Nested conditionals
-  - `?[ ?[$a]{$b}{$c} ]`
+  - `?[?[$a]{$b}{$c}]`
     - This condition evaluates `$b` if `$a` is true, otherwise `$c`.
     - Based on `$b` or `$c` the `if` or `else` branch of the original conditional is executed.
   - Possible, though potentially confusing
 - Count operator
-  - `?[ #$items == 1 ]`
+  - `?[#$items == 1]`
 
 All the above expressions can be infinitely combined using the various operators.
 
@@ -95,22 +99,19 @@ var output = Symple.Parser
 
 ## Complete example
 
-The sample below uses all available functionality of Symple. A few things to note:
-
-- You can use collections like `$planet.Moons` in a conditional `?[ $planet.Moons ]` which evaluates to `true` if the collection has at least 1 element.
-- Similarly, a `string` can also be used in a condition and will evaluate to `true` if it has a length of at least 1.
+The sample below uses many Symple features such as conditionals / loops / variables /
 
 ```cs
 var template = @"
 <h1>Planets</h1>
-<ul>@[ $planet : $planets ] {
+<ul>@[$planet:$planets] {
     <li>
-        <h2>$planet.Name</h2>?[ $planet.Moons ] {
-        <strong>Moons of $planet.Name:</strong>
-        <ul>@[ $moon : $planet.Moons ] {
+        <h2>$planet.Name</h2>?[$planet.Moons] {
+        <strong>$planet.Name has #$planet.Moons moon?[#$planet.Moons!=1]{s}</strong>
+        <ul>@[$moon:$planet.Moons] {
             <li>$moon</li>}
         </ul>} {
-        $planet.Name has no moons}
+        <strong>$planet.Name has no moons</strong>}
     </li>}
 </ul>";
 
