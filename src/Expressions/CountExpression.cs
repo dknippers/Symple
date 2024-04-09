@@ -30,7 +30,7 @@ public class CountExpression : IExpression
 
     public bool AsBool(Dictionary<string, object?> variables)
     {
-        return GetCount(variables) != 0;
+        return GetCount(variables) is int count && count != 0;
     }
 
     public override string ToString()
