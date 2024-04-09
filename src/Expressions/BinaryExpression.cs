@@ -19,16 +19,34 @@ public class BinaryExpression : IExpression
 
     public bool AsBool(Dictionary<string, object?> variables)
     {
-        return Operator switch
+        switch (Operator)
         {
-            BinaryOperator.And => Left.AsBool(variables) && Right.AsBool(variables),
-            BinaryOperator.Or => Left.AsBool(variables) || Right.AsBool(variables),
+            case BinaryOperator.And: return Left.AsBool(variables) && Right.AsBool(variables);
+            case BinaryOperator.Or: return Left.AsBool(variables) || Right.AsBool(variables);
 
-            BinaryOperator.Equal => Left.Render(variables) == Right.Render(variables),
-            BinaryOperator.NotEqual => Left.Render(variables) != Right.Render(variables),
+            case BinaryOperator.Equal: return Left.Render(variables) == Right.Render(variables);
+            case BinaryOperator.NotEqual: return Left.Render(variables) != Right.Render(variables);
 
-            _ => throw new NotSupportedException($"Unsupported binary operator: {Operator}"),
-        };
+            case BinaryOperator.LessThan:
+            case BinaryOperator.GreaterThan:
+            case BinaryOperator.LessThanOrEqual:
+            case BinaryOperator.GreaterThanOrEqual:
+                if ((Left as INumericExpression)?.AsNumber(variables) is not decimal lhs ||
+                    (Right as INumericExpression)?.AsNumber(variables) is not decimal rhs)
+                {
+                    // Instead of a runtime exception a comparison with invalid operands will just return false.
+                    return false;
+                }
+
+                if (Operator == BinaryOperator.LessThan) return lhs < rhs;
+                if (Operator == BinaryOperator.GreaterThan) return lhs > rhs;
+                if (Operator == BinaryOperator.LessThanOrEqual) return lhs <= rhs;
+                if (Operator == BinaryOperator.GreaterThanOrEqual) return lhs >= rhs;
+
+                break;
+        }
+
+        throw new NotSupportedException($"Unsupported binary operator: {Operator}");
     }
 
     public string Render(Dictionary<string, object?> variables)
@@ -44,6 +62,10 @@ public class BinaryExpression : IExpression
             BinaryOperator.Or => "||",
             BinaryOperator.Equal => "==",
             BinaryOperator.NotEqual => "!=",
+            BinaryOperator.LessThan => "<",
+            BinaryOperator.GreaterThan => ">",
+            BinaryOperator.LessThanOrEqual => "<=",
+            BinaryOperator.GreaterThanOrEqual => ">=",
             _ => throw new NotImplementedException($"Unknown binary operator {Operator}"),
         };
 
@@ -57,4 +79,8 @@ public enum BinaryOperator
     And,
     Equal,
     NotEqual,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
 }

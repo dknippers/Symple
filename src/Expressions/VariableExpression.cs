@@ -1,11 +1,12 @@
 using System.Collections;
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Nodes;
 
 namespace Symple.Expressions;
 
-public class VariableExpression : IExpression
+public class VariableExpression : INumericExpression
 {
     public VariableExpression(string name, string[]? propertyNames)
     {
@@ -101,6 +102,27 @@ public class VariableExpression : IExpression
                 ? Activator.CreateInstance(t)
                 : null;
         }
+    }
+
+    public decimal? AsNumber(Dictionary<string, object?> variables)
+    {
+        var v = GetValue(variables);
+
+        return v switch
+        {
+            decimal m => m,
+            double d => (decimal)d,
+            float f => (decimal)f,
+            long l => l,
+            int i => i,
+            nint ni => ni,
+            uint ui => ui,
+            ushort us => us,
+            short s => s,
+            byte b => b,
+            sbyte sb => sb,
+            _ => null,
+        };
     }
 
     public override string ToString()

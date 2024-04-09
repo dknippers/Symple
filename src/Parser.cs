@@ -316,9 +316,10 @@ public class Parser
 
     private IExpression ParseCondition()
     {
-        Read("?[", IgnoreWhiteSpace.After);
+        Read('?');
+        Read('[', IgnoreWhiteSpace.After);
         var boolean = ParseBoolean();
-        Read("]", IgnoreWhiteSpace.Around);
+        Read(']', IgnoreWhiteSpace.Around);
         return boolean;
     }
 
@@ -367,7 +368,14 @@ public class Parser
 
     private IExpression ParseEquality()
     {
-        return ParseBinary(ParsePrimary, BinaryOperator.Equal, BinaryOperator.NotEqual);
+        return ParseBinary(ParseComparison, BinaryOperator.Equal, BinaryOperator.NotEqual);
+    }
+
+    private IExpression ParseComparison()
+    {
+        return ParseBinary(
+            ParsePrimary,
+            BinaryOperator.LessThan, BinaryOperator.GreaterThan, BinaryOperator.LessThanOrEqual, BinaryOperator.GreaterThanOrEqual);
     }
 
     private IExpression ParseBinary(Func<IExpression> next, params BinaryOperator[] operators)
@@ -445,18 +453,28 @@ public class Parser
             case '|':
             case '=':
             case '!':
+            case '<':
+            case '>':
 
                 _index++;
 
-                var next = c switch
+                var next = CharAt(_index);
+
+                if ((c == '<' || c == '>') && next != '=')
                 {
-                    '!' => '=',
+                    @operator = c == '<' ? BinaryOperator.LessThan : BinaryOperator.GreaterThan;
+                    goto done;
+                }
+
+                var expect = c switch
+                {
+                    _ when c == '!' || c == '>' || c == '<' => '=',
                     _ => c,
                 };
 
-                if (_index >= _length || _input[_index] != next)
+                if (_index >= _length || next != expect)
                 {
-                    throw ParseException($"Expected '{next}'");
+                    throw ParseException($"Expected '{expect}'");
                 }
 
                 @operator = c switch
@@ -465,15 +483,18 @@ public class Parser
                     '|' => BinaryOperator.Or,
                     '=' => BinaryOperator.Equal,
                     '!' => BinaryOperator.NotEqual,
+                    '<' => BinaryOperator.LessThanOrEqual,
+                    '>' => BinaryOperator.GreaterThanOrEqual,
                     _ => throw new NotImplementedException($"Unknown binary operator: '{c}{_input[_index]}'"),
                 };
 
+                _index++;
+
+            done:
                 if (allowedOperators is not null && !allowedOperators.Contains(@operator.Value))
                 {
                     goto rewind;
                 }
-
-                _index++;
 
                 SkipWhiteSpace();
                 return true;
@@ -548,33 +569,6 @@ public class Parser
         // Failed: rewind
         _index = checkpoint;
         return false;
-    }
-
-    private void Read(string str, IgnoreWhiteSpace whiteSpace = IgnoreWhiteSpace.None)
-    {
-        if (whiteSpace.HasFlag(IgnoreWhiteSpace.Before))
-        {
-            SkipWhiteSpace();
-        }
-
-        var len = str.Length;
-        if (_index > _length - len)
-        {
-            throw ParseException($"Expected \"{str}\"");
-        }
-
-        var next = _input[_index..(_index + len)];
-        if (next != str)
-        {
-            throw ParseException($"Unexpected string \"{next}\", expected \"{str}\"");
-        }
-
-        _index += len;
-
-        if (whiteSpace.HasFlag(IgnoreWhiteSpace.After))
-        {
-            SkipWhiteSpace();
-        }
     }
 
     private void SkipWhiteSpace()

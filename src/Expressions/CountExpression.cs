@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Symple.Expressions;
 
-public class CountExpression : IExpression
+public class CountExpression : INumericExpression
 {
     public CountExpression(VariableExpression collection)
     {
@@ -31,6 +31,11 @@ public class CountExpression : IExpression
     public bool AsBool(Dictionary<string, object?> variables)
     {
         return GetCount(variables) is int count && count != 0;
+    }
+
+    public decimal? AsNumber(Dictionary<string, object?> variables)
+    {
+        return GetCount(variables);
     }
 
     public override string ToString()

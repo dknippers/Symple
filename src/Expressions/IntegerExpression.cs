@@ -1,6 +1,6 @@
 namespace Symple.Expressions;
 
-public class IntegerExpression : IExpression
+public class IntegerExpression : INumericExpression
 {
     public IntegerExpression(long value)
     {
@@ -17,6 +17,11 @@ public class IntegerExpression : IExpression
     public bool AsBool(Dictionary<string, object?> variables)
     {
         return Value != 0;
+    }
+
+    public decimal? AsNumber(Dictionary<string, object?> variables)
+    {
+        return Value;
     }
 
     public override string ToString()
