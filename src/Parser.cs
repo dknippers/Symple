@@ -51,10 +51,10 @@ public class Parser
             char? next = CharAt(_index + 1);
             IExpression expression = c switch
             {
-                char ch when IsStartOfVariable(ch, next) => ParseVariable(),
-                char ch when IsStartOfConditional(ch, next) => ParseConditional(),
-                char ch when IsStartOfLoop(ch, next) => ParseLoop(),
-                char ch when IsStartOfCount(ch, next, CharAt(_index + 2)) => ParseCount(),
+                _ when IsStartOfVariable(c, next) => ParseVariable(),
+                _ when IsStartOfConditional(c, next) => ParseConditional(),
+                _ when IsStartOfLoop(c, next) => ParseLoop(),
+                _ when IsStartOfCount(c, next, CharAt(_index + 2)) => ParseCount(),
                 _ => ParseString(terminator, specialChars),
             };
 
@@ -209,6 +209,32 @@ public class Parser
         }
 
         return new VariableExpression(name, propertyNames?.ToArray());
+    }
+
+    private IExpression ParseInteger()
+    {
+        var start = _index;
+
+        // Allow leading - for negative numbers
+        var isNegative = TryRead('-');
+
+        if (_index >= _length)
+        {
+            throw ParseException("Expected a digit");
+        }
+
+        while (_index < _length && char.IsDigit(_input[_index]))
+        {
+            _index++;
+        }
+
+        if (isNegative && (_index == start + 1))
+        {
+            throw ParseException("Expected a digit");
+        }
+
+        var value = long.Parse(_input[start.._index]);
+        return new IntegerExpression(value);
     }
 
     private string ParseIdentifier()
@@ -389,7 +415,8 @@ public class Parser
             '?' => ParseConditional(),
             '#' => ParseCount(),
             '"' => ParseInterpolatedString(),
-            _ => throw ParseException("Expected '!', '(', '$', '?', '#' or '\"'"),
+            _ when char.IsDigit(c) || c == '-' => ParseInteger(),
+            _ => throw ParseException("Expected '!', '(', '$', '?', '#', '\"', '-' or a digit"),
         };
     }
 
