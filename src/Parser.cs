@@ -30,13 +30,33 @@ public class Parser
     }
 
     /// <summary>
-    /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/> that can be rendered to a string.
+    /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/>.
     /// </summary>
     /// <param name="template">Template to parse</param>
     /// <returns><see cref="IExpression"/> that represents the input template.</returns>
     public static IExpression Parse(string template)
     {
         return new Parser(template).ParseTemplate();
+    }
+
+    /// <summary>
+    /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/>.
+    /// </summary>
+    /// <param name="template">Template to parse</param>
+    /// <param name="expression">When succesful, the <see cref="IExpression"/> that represents the input template, otherwise <c>null</c>.</param>
+    /// <returns><c>true</c> when the template was successfully parsed, otherwise <c>false</c></returns>
+    public static bool TryParse(string template, [NotNullWhen(true)] out IExpression? expression)
+    {
+        try
+        {
+            expression = Parse(template);
+            return true;
+        }
+        catch
+        {
+            expression = null;
+            return false;
+        }
     }
 
     private IExpression ParseTemplate(bool nested = false)
@@ -167,8 +187,8 @@ public class Parser
                 break;
             }
 
+        include:
             // Character is not special; will be part of StringExpression.
-            include:
             _index = idx + 1;
         }
 
@@ -495,7 +515,7 @@ public class Parser
 
                 _index++;
 
-                done:
+            done:
                 if (allowedOperators is not null && !allowedOperators.Contains(@operator.Value))
                 {
                     goto rewind;
@@ -508,7 +528,7 @@ public class Parser
                 goto rewind;
         }
 
-        rewind:
+    rewind:
         _index = checkpoint;
         return false;
     }
