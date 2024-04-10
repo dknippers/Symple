@@ -1,8 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Text;
 using Symple.Exceptions;
 using Symple.Expressions;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Text;
 
 namespace Symple;
 
@@ -14,6 +14,13 @@ public class Parser
 
     private const char OPEN = '{';
     private const char CLOSE = '}';
+
+    private static class SpecialChars
+    {
+        public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
+        public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
+        public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
+    }
 
     internal Parser(string template)
     {
@@ -100,13 +107,6 @@ public class Parser
         return expressions.Count == 1
             ? expressions[0] // Unbox single expressions
             : new CompositeExpression(expressions.ToArray());
-    }
-
-    private static class SpecialChars
-    {
-        public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
-        public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
-        public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
     }
 
     private StringExpression ParseString(char? terminator, char[] specialChars)
@@ -211,30 +211,23 @@ public class Parser
         return new VariableExpression(name, propertyNames?.ToArray());
     }
 
-    private IExpression ParseInteger()
+    private IExpression ParseNumeric()
     {
         var start = _index;
 
-        // Allow leading - for negative numbers
-        var isNegative = TryRead('-');
+        TryRead('-'); // Leading - for negative numbers
+        var isDecimal = TryRead('.'); // Leading . for decimal numbers
 
-        if (_index >= _length)
+        ReadDigits();
+
+        if (!isDecimal && TryRead('.'))
         {
-            throw ParseException("Expected a digit");
+            // Read decimal part
+            ReadDigits();
         }
 
-        while (_index < _length && char.IsDigit(_input[_index]))
-        {
-            _index++;
-        }
-
-        if (isNegative && (_index == start + 1))
-        {
-            throw ParseException("Expected a digit");
-        }
-
-        var value = long.Parse(_input[start.._index]);
-        return new IntegerExpression(value);
+        var value = decimal.Parse(_input[start.._index], CultureInfo.InvariantCulture);
+        return new NumericExpression(value);
     }
 
     private string ParseIdentifier()
@@ -254,9 +247,12 @@ public class Parser
             break;
         }
 
-        return start == _index
-            ? throw ParseException("Expecting identifier")
-            : _input[start.._index];
+        if (_index == start)
+        {
+            throw ParseException("Expected identifier");
+        }
+
+        return _input[start.._index];
     }
 
     private static bool IsStartOfIdentifier(char? c)
@@ -423,9 +419,20 @@ public class Parser
             '?' => ParseConditional(),
             '#' => ParseCount(),
             '"' => ParseInterpolatedString(),
-            _ when char.IsDigit(c) || c == '-' => ParseInteger(),
+            _ when char.IsDigit(c) || c == '-' || c == '.' => ParseNumeric(),
             _ => throw ParseException("Expected '!', '(', '$', '?', '#', '\"', '-' or a digit"),
         };
+    }
+
+    private IExpression ParseGroup()
+    {
+        Read('(', IgnoreWhiteSpace.After);
+        var expression = ParseBoolean();
+        Read(')', IgnoreWhiteSpace.Before);
+
+        // A group is only for precedence, the final result is
+        // simply the contained expression.
+        return expression;
     }
 
     private bool TryReadBinaryOperator([NotNullWhen(true)] out BinaryOperator? @operator, BinaryOperator[]? allowedOperators = null)
@@ -490,7 +497,7 @@ public class Parser
 
                 _index++;
 
-            done:
+                done:
                 if (allowedOperators is not null && !allowedOperators.Contains(@operator.Value))
                 {
                     goto rewind;
@@ -503,23 +510,11 @@ public class Parser
                 goto rewind;
         }
 
-    rewind:
+        rewind:
         _index = checkpoint;
         return false;
     }
 
-    private IExpression ParseGroup()
-    {
-        Read('(', IgnoreWhiteSpace.After);
-        var expression = ParseBoolean();
-        Read(')', IgnoreWhiteSpace.Before);
-
-        // A group is only for precedence, the final result is
-        // simply the contained expression.
-        return expression;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Read(char target, IgnoreWhiteSpace whiteSpace = IgnoreWhiteSpace.None)
     {
         if (whiteSpace.HasFlag(IgnoreWhiteSpace.Before))
@@ -569,6 +564,21 @@ public class Parser
         // Failed: rewind
         _index = checkpoint;
         return false;
+    }
+
+    private void ReadDigits()
+    {
+        var start = _index;
+
+        while (_index < _length && char.IsDigit(_input[_index]))
+        {
+            _index++;
+        }
+
+        if (_index == start)
+        {
+            throw ParseException("Expected a digit");
+        }
     }
 
     private void SkipWhiteSpace()

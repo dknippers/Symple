@@ -18,18 +18,25 @@ It has the following features:
   - `!`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Logical NOT
   - `&&`&nbsp;&nbsp;&nbsp;Logical AND
   - `||`&nbsp;&nbsp;&nbsp;Logical OR
-- Comparison operators - operands are evaluated as `string`.
+- Comparison operators - operands are evaluated as `decimal`
+  - `<`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Less than
+  - `>`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Greater than
+  - `<=`&nbsp;&nbsp;&nbsp;Less than or equal
+  - `>=`&nbsp;&nbsp;&nbsp;Greater than or equal
+  - Note if any expression that is not a numeric is part of the comparision it will yield `false`.
+- Equality operators - operands are evaluated as `string`.
   - `==`&nbsp;&nbsp;&nbsp;Equal
   - `!=`&nbsp;&nbsp;&nbsp;Not Equal
 - Grouping in a condition to override default operator precedence
   - e.g. `?[$a && ($b || $c)]`
 - Collection count
-  - `?[#$items==1]{exactly 1 item}`
+  - `?[#$items == 1]{exactly 1 item}`
     - Evaluates to the length of the `IEnumerable` variable as an integer.
     - If the variable is not an `IEnumerable` will evaluate to `""` / `false`.
 
 ## Types
 
+The core types used in Symple are `string` for rendering, `bool` for conditionals and `decimal` for any numeric comparisons.
 You can pass any .NET type as a variable to the template but keep in mind when rendering a variable Symple will call `.ToString()` on it so using anything other than a `string` as the final expression can lead to unwanted output. For example, an `int[]` variable would be rendered as `System.Int32[]` which is unlikely what you want.
 
 ## Implicit bool conversion
@@ -46,33 +53,40 @@ Any variable can be used directly in the conditional expression, i.e. `?[$var] {
 
 ## Conditional expression
 
-The conditional expression `?[condition] {if} {else}` allows the following expressions as `condition`, where any expression will be implicitly converted to `bool` if it isn't naturally:
+The conditional expression `?[condition] {if} {else}` allows the following expressions as `condition`, where any expression other than `bool` will be implicitly converted to `bool`.
 
 - Variables
   - `?[$x]`
   - See in "Implicit bool conversion" how variables are converted to `bool`.
-- Interpolated strings
-  - `?["$x in a string"]`
+- Strings
+  - `?["str"]`
+  - `?[$a == "str with $var"]`
   - Note unlike in the template itself it requires `"` delimiters.
-- Integers
+  - A string evaluates to `true` unless empty (`""`).
+- Numbers
   - `?[1]`
-  - Integers evaluate to `true` unless equal to `0`.
-- Logical expressions
+  - `?[2.5 > 2]`
+  - Numbers evaluate to `true` unless equal to `0`.
+- Logical expressions (`!`, `&&`, `||` and parentheses)
   - `?[$a && $b]`
   - `?[!$a]`
   - `?[!$a && ($b || $c)]`
   - Note, this evaluates operands as `bool`
-- Comparisons
+- Comparison (`<`, `>`, `<=`, `>=`)
+  - `?[$a > $b && $a < 2]`
+  - `?[$a <= 1.5 || $a >= 4]`
+  - Note, this evaluates operands as `decimal`
+- Equality (`==`, `!=`)
   - `?[$a == "value"]`
   - `?[$b != "other"]`
   - Note, this evaluates operands as `string`
+- Collection count operator
+  - `?[#$items > 1]`
 - Nested conditionals
   - `?[?[$a]{$b}{$c}]`
     - This condition evaluates `$b` if `$a` is true, otherwise `$c`.
     - Based on `$b` or `$c` the `if` or `else` branch of the original conditional is executed.
   - Possible, though potentially confusing
-- Count operator
-  - `?[#$items == 1]`
 
 All the above expressions can be infinitely combined using the various operators.
 

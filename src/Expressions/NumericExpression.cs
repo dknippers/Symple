@@ -1,13 +1,13 @@
 namespace Symple.Expressions;
 
-public class IntegerExpression : INumericExpression
+public class NumericExpression : INumericExpression
 {
-    public IntegerExpression(long value)
+    public NumericExpression(decimal value)
     {
         Value = value;
     }
 
-    public long Value { get; }
+    public decimal Value { get; }
 
     public string Render(Dictionary<string, object?> variables)
     {
