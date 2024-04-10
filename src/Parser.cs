@@ -139,26 +139,23 @@ public class Parser
             }
 
             var c = _input[idx];
+            char? next = CharAt(idx + 1);
 
             if (c == '\\')
             {
-                _ = sb.Append(_input[start..idx]);
-
-                if (idx + 1 >= _length)
+                if (next is null || (next != terminator && Array.IndexOf(specialChars, next) == -1))
                 {
-                    _index = idx + 1;
-                    throw ParseException("Expected escaped character");
+                    // It is not escaping a special character, just include it in the output as a backslash.
+                    goto include;
                 }
 
-                // Append escaped char
-                _ = sb.Append(_input[idx + 1]);
-
+                // Append everything before and after backslash but not backslash itself.
+                _ = sb.Append(_input[start..idx]).Append(next);
                 _index = idx + 2;
                 start = _index;
                 continue;
             }
 
-            char? next = CharAt(idx + 1);
             if (c == terminator ||
                 IsStartOfConditional(c, next) ||
                 IsStartOfLoop(c, next) ||
@@ -171,6 +168,7 @@ public class Parser
             }
 
             // Character is not special; will be part of StringExpression.
+            include:
             _index = idx + 1;
         }
 
