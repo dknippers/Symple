@@ -14,11 +14,13 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>Daniël Knippers</Authors>
     <Copyright>© $(Authors)</Copyright>
+    <Description>A simple templating engine.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/dknippers/Symple</PackageProjectUrl>
     <RepositoryUrl>https://github.com/dknippers/Symple</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup Label="NuGet Package files">
