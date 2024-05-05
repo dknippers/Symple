@@ -12,7 +12,7 @@ var variables = new Dictionary<string, object?>
     ["person"] = new
     {
         Name = "Stephen",
-        Father = new {  Name = "Frank" }
+        Father = new { Name = "Frank" }
     }
 };
 
