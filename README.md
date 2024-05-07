@@ -58,14 +58,14 @@ var output = Symple.Parser
 // <ul>
 //     <li>
 //         <h2>Earth</h2>
-//         <strong>Moons of Earth:</strong>
+//         <strong>Earth has 1 moon</strong>
 //         <ul>
 //             <li>Moon</li>
 //         </ul>
 //     </li>
 //     <li>
 //         <h2>Mars</h2>
-//         <strong>Moons of Mars:</strong>
+//         <strong>Mars has 2 moons</strong>
 //         <ul>
 //             <li>Phobos</li>
 //             <li>Deimos</li>
