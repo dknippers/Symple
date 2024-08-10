@@ -1,45 +1,48 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
-namespace Symple.Expressions;
-
-public class CountExpression : INumericExpression
+namespace Symple.Expressions
 {
-    public CountExpression(VariableExpression collection)
+    public class CountExpression : INumericExpression
     {
-        Collection = collection;
-    }
-
-    public VariableExpression Collection { get; }
-
-    public int? GetCount(Dictionary<string, object?> variables)
-    {
-        if (Collection.GetValue(variables) is not IEnumerable enumerable)
+        public CountExpression(VariableExpression collection)
         {
-            return null;
+            Collection = collection;
         }
 
-        return enumerable.Cast<object?>().Count();
-    }
+        public VariableExpression Collection { get; }
 
-    public string Render(Dictionary<string, object?> variables)
-    {
-        return GetCount(variables)?.ToString(CultureInfo.InvariantCulture) ?? "";
-    }
+        public int? GetCount(Dictionary<string, object> variables)
+        {
+            if (!(Collection.GetValue(variables) is IEnumerable enumerable))
+            {
+                return null;
+            }
 
-    public bool AsBool(Dictionary<string, object?> variables)
-    {
-        return GetCount(variables) is int count && count != 0;
-    }
+            return enumerable.Cast<object>().Count();
+        }
 
-    public decimal? AsNumber(Dictionary<string, object?> variables)
-    {
-        return GetCount(variables);
-    }
+        public string Render(Dictionary<string, object> variables)
+        {
+            return GetCount(variables)?.ToString(CultureInfo.InvariantCulture) ?? "";
+        }
 
-    public override string ToString()
-    {
-        return new StringBuilder().Append('#').Append(Collection).ToString();
+        public bool AsBool(Dictionary<string, object> variables)
+        {
+            return GetCount(variables) is int count && count != 0;
+        }
+
+        public decimal? AsNumber(Dictionary<string, object> variables)
+        {
+            return GetCount(variables);
+        }
+
+        public override string ToString()
+        {
+            return new StringBuilder().Append('#').Append(Collection).ToString();
+        }
     }
 }

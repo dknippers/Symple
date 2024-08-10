@@ -1,28 +1,30 @@
+using System.Collections.Generic;
 using System.Text;
 
-namespace Symple.Expressions;
-
-public class StringExpression : IExpression
+namespace Symple.Expressions
 {
-    public StringExpression(string value)
+    public class StringExpression : IExpression
     {
-        Value = value;
-    }
+        public StringExpression(string value)
+        {
+            Value = value;
+        }
 
-    public string Value { get; }
+        public string Value { get; }
 
-    public string Render(Dictionary<string, object?> variables)
-    {
-        return Value;
-    }
+        public string Render(Dictionary<string, object> variables)
+        {
+            return Value;
+        }
 
-    public bool AsBool(Dictionary<string, object?> variables)
-    {
-        return !string.IsNullOrEmpty(Value);
-    }
+        public bool AsBool(Dictionary<string, object> variables)
+        {
+            return !string.IsNullOrEmpty(Value);
+        }
 
-    public override string ToString()
-    {
-        return new StringBuilder().Append('"').Append(Value.Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n")).Append('"').ToString();
+        public override string ToString()
+        {
+            return new StringBuilder().Append('"').Append(Value.Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n")).Append('"').ToString();
+        }
     }
 }

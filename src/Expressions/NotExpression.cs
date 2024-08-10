@@ -1,28 +1,30 @@
+using System.Collections.Generic;
 using System.Text;
 
-namespace Symple.Expressions;
-
-public class NotExpression : IExpression
+namespace Symple.Expressions
 {
-    public IExpression Operand { get; }
-
-    public NotExpression(IExpression operand)
+    public class NotExpression : IExpression
     {
-        Operand = operand;
-    }
+        public IExpression Operand { get; }
 
-    public bool AsBool(Dictionary<string, object?> variables)
-    {
-        return !Operand.AsBool(variables);
-    }
+        public NotExpression(IExpression operand)
+        {
+            Operand = operand;
+        }
 
-    public string Render(Dictionary<string, object?> variables)
-    {
-        return AsBool(variables).ToString();
-    }
+        public bool AsBool(Dictionary<string, object> variables)
+        {
+            return !Operand.AsBool(variables);
+        }
 
-    public override string ToString()
-    {
-        return new StringBuilder().Append('!').Append(Operand).ToString();
+        public string Render(Dictionary<string, object> variables)
+        {
+            return AsBool(variables).ToString();
+        }
+
+        public override string ToString()
+        {
+            return new StringBuilder().Append('!').Append(Operand).ToString();
+        }
     }
 }

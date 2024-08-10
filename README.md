@@ -1,13 +1,13 @@
 # Symple
 
-A simple templating engine for C# compatible with .NET 6+.
+A simple templating engine for .NET Standard 2.0.
 
 ## Example
 
 ```csharp
 var template = "$person.Name's father was $person.Father.Name.";
 
-var variables = new Dictionary<string, object?>
+var variables = new Dictionary<string, object>
 {
     ["person"] = new
     {
@@ -39,7 +39,7 @@ var template = @"
     </li>}
 </ul>";
 
-var variables = new Dictionary<string, object?>
+var variables = new Dictionary<string, object>
 {
     ["planets"] = new[]
     {

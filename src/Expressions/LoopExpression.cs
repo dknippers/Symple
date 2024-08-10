@@ -1,53 +1,55 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 
-namespace Symple.Expressions;
-
-public class LoopExpression : IExpression
+namespace Symple.Expressions
 {
-    public LoopExpression(string identifier, VariableExpression collection, IExpression template)
+    public class LoopExpression : IExpression
     {
-        Identifier = identifier;
-        Collection = collection;
-        Template = template;
-    }
-
-    public string Identifier { get; }
-
-    public VariableExpression Collection { get; }
-
-    public IExpression Template { get; }
-
-    public string Render(Dictionary<string, object?> variables)
-    {
-        if (Collection.GetValue(variables) is not IEnumerable enumerable)
+        public LoopExpression(string identifier, VariableExpression collection, IExpression template)
         {
-            // If the Collection cannot be enumerated we render nothing.
-            return "";
+            Identifier = identifier;
+            Collection = collection;
+            Template = template;
         }
 
-        var sb = new StringBuilder();
+        public string Identifier { get; }
 
-        var loopVariables = new Dictionary<string, object?>(variables);
+        public VariableExpression Collection { get; }
 
-        foreach (var identifier in enumerable)
+        public IExpression Template { get; }
+
+        public string Render(Dictionary<string, object> variables)
         {
-            loopVariables[Identifier] = identifier;
-            var value = Template.Render(loopVariables);
-            _ = sb.Append(value);
+            if (!(Collection.GetValue(variables) is IEnumerable enumerable))
+            {
+                // If the Collection cannot be enumerated we render nothing.
+                return "";
+            }
+
+            var sb = new StringBuilder();
+
+            var loopVariables = new Dictionary<string, object>(variables);
+
+            foreach (var identifier in enumerable)
+            {
+                loopVariables[Identifier] = identifier;
+                var value = Template.Render(loopVariables);
+                _ = sb.Append(value);
+            }
+
+            return sb.ToString();
         }
 
-        return sb.ToString();
-    }
+        public bool AsBool(Dictionary<string, object> variables)
+        {
+            var str = Render(variables);
+            return !string.IsNullOrEmpty(str);
+        }
 
-    public bool AsBool(Dictionary<string, object?> variables)
-    {
-        var str = Render(variables);
-        return !string.IsNullOrEmpty(str);
-    }
-
-    public override string ToString()
-    {
-        return new StringBuilder().Append("@[$").Append(Identifier).Append(':').Append(Collection).Append("]{").Append(Template).Append('}').ToString();
+        public override string ToString()
+        {
+            return new StringBuilder().Append("@[$").Append(Identifier).Append(':').Append(Collection).Append("]{").Append(Template).Append('}').ToString();
+        }
     }
 }

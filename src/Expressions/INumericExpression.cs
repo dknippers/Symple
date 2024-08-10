@@ -1,6 +1,9 @@
-namespace Symple.Expressions;
+using System.Collections.Generic;
 
-public interface INumericExpression : IExpression
+namespace Symple.Expressions
 {
-    decimal? AsNumber(Dictionary<string, object?> variables);
+    public interface INumericExpression : IExpression
+    {
+        decimal? AsNumber(Dictionary<string, object> variables);
+    }
 }

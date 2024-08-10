@@ -1,14 +1,17 @@
-namespace Symple.Exceptions;
+using System;
 
-public partial class ParseException : Exception
+namespace Symple.Exceptions
 {
-    public string Input { get; }
-
-    public int Index { get; }
-
-    public ParseException(string input, int index, string message) : base(message)
+    public partial class ParseException : Exception
     {
-        Input = input;
-        Index = index;
+        public string Input { get; }
+
+        public int Index { get; }
+
+        public ParseException(string input, int index, string message) : base(message)
+        {
+            Input = input;
+            Index = index;
+        }
     }
 }

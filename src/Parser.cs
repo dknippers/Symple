@@ -1,632 +1,634 @@
 using Symple.Exceptions;
 using Symple.Expressions;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using System;
+using System.Linq;
+using System.Collections.Generic;
 
-namespace Symple;
-
-public class Parser
+namespace Symple
 {
-    private readonly string _input;
-    private int _index;
-    private readonly int _length;
-
-    private const char OPEN = '{';
-    private const char CLOSE = '}';
-
-    private static class SpecialChars
+    public class Parser
     {
-        public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
-        public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
-        public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
-    }
+        private readonly string _input;
+        private int _index;
+        private readonly int _length;
 
-    internal Parser(string template)
-    {
-        _input = template;
-        _length = _input.Length;
-        _index = 0;
-    }
+        private const char OPEN = '{';
+        private const char CLOSE = '}';
 
-    /// <summary>
-    /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/>.
-    /// </summary>
-    /// <param name="template">Template to parse</param>
-    /// <returns><see cref="IExpression"/> that represents the input template.</returns>
-    public static IExpression Parse(string template)
-    {
-        return new Parser(template).ParseTemplate();
-    }
-
-    /// <summary>
-    /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/>.
-    /// </summary>
-    /// <param name="template">Template to parse</param>
-    /// <param name="expression">When succesful, the <see cref="IExpression"/> that represents the input template, otherwise <c>null</c>.</param>
-    /// <returns><c>true</c> when the template was successfully parsed, otherwise <c>false</c></returns>
-    public static bool TryParse(string template, [NotNullWhen(true)] out IExpression? expression)
-    {
-        try
+        private static class SpecialChars
         {
-            expression = Parse(template);
-            return true;
+            public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
+            public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
+            public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
         }
-        catch
+
+        internal Parser(string template)
         {
-            expression = null;
-            return false;
+            _input = template;
+            _length = _input.Length;
+            _index = 0;
         }
-    }
 
-    private IExpression ParseTemplate(bool nested = false)
-    {
-        var expressions = new List<IExpression>();
-
-        var terminator = nested ? CLOSE : (char?)null;
-        var specialChars = nested ? SpecialChars.Nested : SpecialChars.Default;
-
-        while (_index < _length)
+        /// <summary>
+        /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/>.
+        /// </summary>
+        /// <param name="template">Template to parse</param>
+        /// <returns><see cref="IExpression"/> that represents the input template.</returns>
+        public static IExpression Parse(string template)
         {
-            var c = _input[_index];
+            return new Parser(template).ParseTemplate();
+        }
 
-            if (nested && c == CLOSE)
+        /// <summary>
+        /// Parses the given <paramref name="template"/> into an <see cref="IExpression"/>.
+        /// </summary>
+        /// <param name="template">Template to parse</param>
+        /// <param name="expression">When succesful, the <see cref="IExpression"/> that represents the input template, otherwise <c>null</c>.</param>
+        /// <returns><c>true</c> when the template was successfully parsed, otherwise <c>false</c></returns>
+        public static bool TryParse(string template, out IExpression expression)
+        {
+            try
             {
+                expression = Parse(template);
+                return true;
+            }
+            catch
+            {
+                expression = null;
+                return false;
+            }
+        }
+
+        private IExpression ParseTemplate(bool nested = false)
+        {
+            var expressions = new List<IExpression>();
+
+            var terminator = nested ? CLOSE : (char?)null;
+            var specialChars = nested ? SpecialChars.Nested : SpecialChars.Default;
+
+            while (_index < _length)
+            {
+                var c = _input[_index];
+
+                if (nested && c == CLOSE)
+                {
+                    break;
+                }
+
+                char? next = CharAt(_index + 1);
+                IExpression expression = ParseExpression(c, next, terminator, specialChars);
+                expressions.Add(expression);
+            }
+
+            return expressions.Count == 1
+                ? expressions[0] // Unbox single expressions
+                : new CompositeExpression(expressions.ToArray());
+        }
+
+        private IExpression ParseExpression(char c, char? next, char? terminator, char[] specialChars)
+        {
+            if (IsStartOfVariable(c, next)) return ParseVariable();
+            if (IsStartOfConditional(c, next)) return ParseConditional();
+            if (IsStartOfLoop(c, next)) return ParseLoop();
+            if (IsStartOfCount(c, next, CharAt(_index + 2))) return ParseCount();
+
+            // Default
+            return ParseString(terminator, specialChars);
+        }
+
+        private char? CharAt(int index)
+        {
+            return index < _length ? _input[index] : (char?)null;
+        }
+
+        private IExpression ParseInterpolatedString()
+        {
+            var expressions = new List<IExpression>();
+
+            Read('"');
+
+            while (_index < _length)
+            {
+                var c = _input[_index];
+
+                if (c == '"')
+                {
+                    break;
+                }
+
+                IExpression expression = c == '$'
+                    ? ParseVariable() as IExpression
+                    : ParseString('"', SpecialChars.Interpolated);
+
+                expressions.Add(expression);
+            }
+
+            Read('"');
+
+            return expressions.Count == 1
+                ? expressions[0] // Unbox single expressions
+                : new CompositeExpression(expressions.ToArray());
+        }
+
+        private StringExpression ParseString(char? terminator, char[] specialChars)
+        {
+            var sb = new StringBuilder();
+
+            var start = _index;
+            while (true)
+            {
+                if (_index >= _length)
+                {
+                    _ = sb.Append(_input.Substring(start, _length - start));
+                    break;
+                }
+
+                var idx = _input.IndexOfAny(specialChars, _index);
+                if (idx == -1)
+                {
+                    var substr = _input.Substring(start, _length - start);
+                    _index = _length;
+
+                    if (sb.Length == 0)
+                    {
+                        // No special chars in the string at all just return it.
+                        return new StringExpression(substr);
+                    }
+
+                    _ = sb.Append(substr);
+                    break;
+                }
+
+                var c = _input[idx];
+                char? next = CharAt(idx + 1);
+
+                if (c == '\\')
+                {
+                    if (next is null || (next != terminator && Array.IndexOf(specialChars, next) == -1))
+                    {
+                        // It is not escaping a special character, just include it in the output as a backslash.
+                        goto include;
+                    }
+
+                    // Append everything before and after backslash but not backslash itself.
+                    _ = sb.Append(_input.Substring(start, idx - start)).Append(next);
+                    _index = idx + 2;
+                    start = _index;
+                    continue;
+                }
+
+                if (c == terminator ||
+                    IsStartOfConditional(c, next) ||
+                    IsStartOfLoop(c, next) ||
+                    IsStartOfVariable(c, next) ||
+                    IsStartOfCount(c, next, CharAt(idx + 2)))
+                {
+                    _ = sb.Append(_input.Substring(start, idx - start));
+                    _index = idx;
+                    break;
+                }
+
+            include:
+                // Character is not special; will be part of StringExpression.
+                _index = idx + 1;
+            }
+
+            return new StringExpression(sb.ToString());
+        }
+
+        private VariableExpression ParseVariable(bool allowProperties = true)
+        {
+            Read('$');
+
+            // Allow optional [ to wrap a variable, i.e. $[var].
+            var wrapped = SkipChar('[');
+
+            var name = ParseIdentifier();
+
+            List<string> propertyNames = null;
+            if (allowProperties)
+            {
+                propertyNames = new List<string>();
+                while (TryRead('.'))
+                {
+                    if (_index == _length || !IsStartOfIdentifier(_input[_index]))
+                    {
+                        // This is not a property access operation.
+                        _index--;
+                        break;
+                    }
+                    propertyNames.Add(ParseIdentifier());
+                }
+            }
+
+            if (wrapped)
+            {
+                // If a variable is wrapped it must be closed.
+                Read(']');
+            }
+
+            return new VariableExpression(name, propertyNames?.ToArray());
+        }
+
+        private IExpression ParseNumeric()
+        {
+            var start = _index;
+
+            TryRead('-'); // Leading - for negative numbers
+            var isDecimal = TryRead('.'); // Leading . for decimal numbers
+
+            ReadDigits();
+
+            if (!isDecimal && TryRead('.'))
+            {
+                // Read decimal part
+                ReadDigits();
+            }
+
+            var value = decimal.Parse(_input.Substring(start, _index - start), CultureInfo.InvariantCulture);
+            return new NumericExpression(value);
+        }
+
+        private string ParseIdentifier()
+        {
+            var start = _index;
+
+            while (_index < _length)
+            {
+                var c = _input[_index];
+
+                if (IsStartOfIdentifier(c) || (_index > start && char.IsDigit(c)))
+                {
+                    _index++;
+                    continue;
+                }
+
                 break;
             }
 
-            char? next = CharAt(_index + 1);
-            IExpression expression = c switch
+            if (_index == start)
             {
-                _ when IsStartOfVariable(c, next) => ParseVariable(),
-                _ when IsStartOfConditional(c, next) => ParseConditional(),
-                _ when IsStartOfLoop(c, next) => ParseLoop(),
-                _ when IsStartOfCount(c, next, CharAt(_index + 2)) => ParseCount(),
-                _ => ParseString(terminator, specialChars),
-            };
-
-            expressions.Add(expression);
-        }
-
-        return expressions.Count == 1
-            ? expressions[0] // Unbox single expressions
-            : new CompositeExpression(expressions.ToArray());
-    }
-
-    private char? CharAt(int index)
-    {
-        return index < _length ? _input[index] : null;
-    }
-
-    private IExpression ParseInterpolatedString()
-    {
-        var expressions = new List<IExpression>();
-
-        Read('"');
-
-        while (_index < _length)
-        {
-            var c = _input[_index];
-
-            if (c == '"')
-            {
-                break;
+                throw ParseException("Expected identifier");
             }
 
-            IExpression expression = c switch
-            {
-                '$' => ParseVariable(),
-                _ => ParseString('"', SpecialChars.Interpolated),
-            };
-
-            expressions.Add(expression);
+            return _input.Substring(start, _index - start);
         }
 
-        Read('"');
+        private static bool IsStartOfIdentifier(char? c)
+        {
+            return c != null && (char.IsLetter(c.Value) || c == '_');
+        }
 
-        return expressions.Count == 1
-            ? expressions[0] // Unbox single expressions
-            : new CompositeExpression(expressions.ToArray());
-    }
+        private static bool IsStartOfVariable(char c, char? next)
+        {
+            return c == '$' && (next == '[' || IsStartOfIdentifier(next));
+        }
 
-    private StringExpression ParseString(char? terminator, char[] specialChars)
-    {
-        var sb = new StringBuilder();
+        private static bool IsStartOfConditional(char c, char? next)
+        {
+            return c == '?' && next == '[';
+        }
 
-        var start = _index;
-        while (true)
+        private static bool IsStartOfLoop(char c, char? next)
+        {
+            return c == '@' && next == '[';
+        }
+
+        private static bool IsStartOfCount(char c, char? next, char? nextNext)
+        {
+            return next != null && c == '#' && IsStartOfVariable(next.Value, nextNext);
+        }
+
+        private LoopExpression ParseLoop()
+        {
+            Read('@');
+            Read('[', IgnoreWhiteSpace.After);
+            var identifier = ParseVariable(false).Name;
+            Read(':', IgnoreWhiteSpace.Around);
+            var collection = ParseVariable();
+            Read(']', IgnoreWhiteSpace.Around);
+            Read(OPEN);
+            var template = ParseTemplate(true);
+            Read(CLOSE);
+
+            return new LoopExpression(identifier, collection, template);
+        }
+
+        private CountExpression ParseCount()
+        {
+            Read('#');
+            var collection = ParseVariable();
+            return new CountExpression(collection);
+        }
+
+        private ConditionalExpression ParseConditional()
+        {
+            var condition = ParseCondition();
+            var ifTrue = ParseThen();
+            var ifFalse = ParseElse();
+            return new ConditionalExpression(condition, ifTrue, ifFalse);
+        }
+
+        private IExpression ParseCondition()
+        {
+            Read('?');
+            Read('[', IgnoreWhiteSpace.After);
+            var boolean = ParseBoolean();
+            Read(']', IgnoreWhiteSpace.Around);
+            return boolean;
+        }
+
+        private IExpression ParseThen()
+        {
+            Read(OPEN);
+            var expression = ParseTemplate(true);
+            Read(CLOSE);
+
+            return expression;
+        }
+
+        private IExpression ParseElse()
+        {
+            if (!TryRead(OPEN, IgnoreWhiteSpace.Before))
+            {
+                // There is no else next in the input.
+                return null;
+            }
+
+            var expression = ParseTemplate(true);
+            Read(CLOSE);
+
+            return expression;
+        }
+
+        private IExpression ParseBoolean()
         {
             if (_index >= _length)
             {
-                _ = sb.Append(_input[start.._length]);
-                break;
+                throw ParseException("Expected boolean expression");
             }
 
-            var idx = _input.IndexOfAny(specialChars, _index);
-            if (idx == -1)
-            {
-                var substr = _input[start.._length];
-                _index = _length;
+            return ParseOr();
+        }
 
-                if (sb.Length == 0)
+        private IExpression ParseOr()
+        {
+            return ParseBinary(ParseAnd, BinaryOperator.Or);
+        }
+
+        private IExpression ParseAnd()
+        {
+            return ParseBinary(ParseEquality, BinaryOperator.And);
+        }
+
+        private IExpression ParseEquality()
+        {
+            return ParseBinary(ParseComparison, BinaryOperator.Equal, BinaryOperator.NotEqual);
+        }
+
+        private IExpression ParseComparison()
+        {
+            return ParseBinary(
+                ParsePrimary,
+                BinaryOperator.LessThan, BinaryOperator.GreaterThan, BinaryOperator.LessThanOrEqual, BinaryOperator.GreaterThanOrEqual);
+        }
+
+        private IExpression ParseBinary(Func<IExpression> next, params BinaryOperator[] operators)
+        {
+            var lhs = next();
+
+            while (true)
+            {
+                if (!TryReadBinaryOperator(out var op, operators))
                 {
-                    // No special chars in the string at all just return it.
-                    return new StringExpression(substr);
+                    return lhs;
                 }
 
-                _ = sb.Append(substr);
-                break;
+                var rhs = next();
+                lhs = new BinaryExpression(op.Value, lhs, rhs);
             }
-
-            var c = _input[idx];
-            char? next = CharAt(idx + 1);
-
-            if (c == '\\')
-            {
-                if (next is null || (next != terminator && Array.IndexOf(specialChars, next) == -1))
-                {
-                    // It is not escaping a special character, just include it in the output as a backslash.
-                    goto include;
-                }
-
-                // Append everything before and after backslash but not backslash itself.
-                _ = sb.Append(_input[start..idx]).Append(next);
-                _index = idx + 2;
-                start = _index;
-                continue;
-            }
-
-            if (c == terminator ||
-                IsStartOfConditional(c, next) ||
-                IsStartOfLoop(c, next) ||
-                IsStartOfVariable(c, next) ||
-                IsStartOfCount(c, next, CharAt(idx + 2)))
-            {
-                _ = sb.Append(_input[start..idx]);
-                _index = idx;
-                break;
-            }
-
-        include:
-            // Character is not special; will be part of StringExpression.
-            _index = idx + 1;
         }
 
-        return new StringExpression(sb.ToString());
-    }
-
-    private VariableExpression ParseVariable(bool allowProperties = true)
-    {
-        Read('$');
-
-        // Allow optional [ to wrap a variable, i.e. $[var].
-        var wrapped = SkipChar('[');
-
-        var name = ParseIdentifier();
-
-        List<string>? propertyNames = null;
-        if (allowProperties)
+        private IExpression ParseNot()
         {
-            propertyNames = new List<string>();
-            while (TryRead('.'))
+            if (!TryRead('!', IgnoreWhiteSpace.After))
             {
-                if (_index == _length || !IsStartOfIdentifier(_input[_index]))
-                {
-                    // This is not a property access operation.
-                    _index--;
-                    break;
-                }
-                propertyNames.Add(ParseIdentifier());
+                return ParsePrimary();
             }
+
+            var rhs = ParseNot();
+            if (rhs is NotExpression not)
+            {
+                // Simplify !!X -> X.
+                return not.Operand;
+            }
+
+            return new NotExpression(rhs);
         }
 
-        if (wrapped)
-        {
-            // If a variable is wrapped it must be closed.
-            Read(']');
-        }
-
-        return new VariableExpression(name, propertyNames?.ToArray());
-    }
-
-    private IExpression ParseNumeric()
-    {
-        var start = _index;
-
-        TryRead('-'); // Leading - for negative numbers
-        var isDecimal = TryRead('.'); // Leading . for decimal numbers
-
-        ReadDigits();
-
-        if (!isDecimal && TryRead('.'))
-        {
-            // Read decimal part
-            ReadDigits();
-        }
-
-        var value = decimal.Parse(_input[start.._index], CultureInfo.InvariantCulture);
-        return new NumericExpression(value);
-    }
-
-    private string ParseIdentifier()
-    {
-        var start = _index;
-
-        while (_index < _length)
+        private IExpression ParsePrimary()
         {
             var c = _input[_index];
-
-            if (IsStartOfIdentifier(c) || (_index > start && char.IsDigit(c)))
+            switch (c)
             {
-                _index++;
-                continue;
+                case '!': return ParseNot();
+                case '(': return ParseGroup();
+                case '$': return ParseVariable();
+                case '?': return ParseConditional();
+                case '#': return ParseCount();
+                case '"': return ParseInterpolatedString();
+
+                default:
+                    if (char.IsDigit(c) || c == '-' || c == '.') return ParseNumeric();
+
+                    throw ParseException("Expected '!', '(', '$', '?', '#', '\"', '-' or a digit");
+            };
+        }
+
+        private IExpression ParseGroup()
+        {
+            Read('(', IgnoreWhiteSpace.After);
+            var expression = ParseBoolean();
+            Read(')', IgnoreWhiteSpace.Before);
+
+            // A group is only for precedence, the final result is
+            // simply the contained expression.
+            return expression;
+        }
+
+        private bool TryReadBinaryOperator(out BinaryOperator? @operator, BinaryOperator[] allowedOperators = null)
+        {
+            @operator = null;
+
+            if (_index >= _length)
+            {
+                return false;
             }
 
-            break;
-        }
+            int checkpoint = _index;
 
-        if (_index == start)
-        {
-            throw ParseException("Expected identifier");
-        }
+            SkipWhiteSpace();
 
-        return _input[start.._index];
-    }
-
-    private static bool IsStartOfIdentifier(char? c)
-    {
-        return c is not null && (char.IsLetter(c.Value) || c == '_');
-    }
-
-    private static bool IsStartOfVariable(char c, char? next)
-    {
-        return c == '$' && (next == '[' || IsStartOfIdentifier(next));
-    }
-
-    private static bool IsStartOfConditional(char c, char? next)
-    {
-        return c == '?' && next == '[';
-    }
-
-    private static bool IsStartOfLoop(char c, char? next)
-    {
-        return c == '@' && next == '[';
-    }
-
-    private static bool IsStartOfCount(char c, char? next, char? nextNext)
-    {
-        return next is not null && c == '#' && IsStartOfVariable(next.Value, nextNext);
-    }
-
-    private LoopExpression ParseLoop()
-    {
-        Read('@');
-        Read('[', IgnoreWhiteSpace.After);
-        var identifier = ParseVariable(false).Name;
-        Read(':', IgnoreWhiteSpace.Around);
-        var collection = ParseVariable();
-        Read(']', IgnoreWhiteSpace.Around);
-        Read(OPEN);
-        var template = ParseTemplate(true);
-        Read(CLOSE);
-
-        return new LoopExpression(identifier, collection, template);
-    }
-
-    private CountExpression ParseCount()
-    {
-        Read('#');
-        var collection = ParseVariable();
-        return new CountExpression(collection);
-    }
-
-    private ConditionalExpression ParseConditional()
-    {
-        var condition = ParseCondition();
-        var ifTrue = ParseThen();
-        var ifFalse = ParseElse();
-        return new ConditionalExpression(condition, ifTrue, ifFalse);
-    }
-
-    private IExpression ParseCondition()
-    {
-        Read('?');
-        Read('[', IgnoreWhiteSpace.After);
-        var boolean = ParseBoolean();
-        Read(']', IgnoreWhiteSpace.Around);
-        return boolean;
-    }
-
-    private IExpression ParseThen()
-    {
-        Read(OPEN);
-        var expression = ParseTemplate(true);
-        Read(CLOSE);
-
-        return expression;
-    }
-
-    private IExpression? ParseElse()
-    {
-        if (!TryRead(OPEN, IgnoreWhiteSpace.Before))
-        {
-            // There is no else next in the input.
-            return null;
-        }
-
-        var expression = ParseTemplate(true);
-        Read(CLOSE);
-
-        return expression;
-    }
-
-    private IExpression ParseBoolean()
-    {
-        if (_index >= _length)
-        {
-            throw ParseException("Expected boolean expression");
-        }
-
-        return ParseOr();
-    }
-
-    private IExpression ParseOr()
-    {
-        return ParseBinary(ParseAnd, BinaryOperator.Or);
-    }
-
-    private IExpression ParseAnd()
-    {
-        return ParseBinary(ParseEquality, BinaryOperator.And);
-    }
-
-    private IExpression ParseEquality()
-    {
-        return ParseBinary(ParseComparison, BinaryOperator.Equal, BinaryOperator.NotEqual);
-    }
-
-    private IExpression ParseComparison()
-    {
-        return ParseBinary(
-            ParsePrimary,
-            BinaryOperator.LessThan, BinaryOperator.GreaterThan, BinaryOperator.LessThanOrEqual, BinaryOperator.GreaterThanOrEqual);
-    }
-
-    private IExpression ParseBinary(Func<IExpression> next, params BinaryOperator[] operators)
-    {
-        var lhs = next();
-
-        while (true)
-        {
-            if (!TryReadBinaryOperator(out var op, operators))
+            if (_index >= _length)
             {
-                return lhs;
+                return false;
             }
 
-            var rhs = next();
-            lhs = new BinaryExpression(op.Value, lhs, rhs);
-        }
-    }
+            var c = _input[_index];
+            switch (c)
+            {
+                case '&':
+                case '|':
+                case '=':
+                case '!':
+                case '<':
+                case '>':
 
-    private IExpression ParseNot()
-    {
-        if (!TryRead('!', IgnoreWhiteSpace.After))
-        {
-            return ParsePrimary();
-        }
+                    _index++;
 
-        var rhs = ParseNot();
-        if (rhs is NotExpression not)
-        {
-            // Simplify !!X -> X.
-            return not.Operand;
-        }
+                    var next = CharAt(_index);
 
-        return new NotExpression(rhs);
-    }
+                    if ((c == '<' || c == '>') && next != '=')
+                    {
+                        @operator = c == '<' ? BinaryOperator.LessThan : BinaryOperator.GreaterThan;
+                        goto done;
+                    }
 
-    private IExpression ParsePrimary()
-    {
-        var c = _input[_index];
+                    var expect = c == '!' || c == '>' || c == '<' ? '=' : c;
 
-        return c switch
-        {
-            '!' => ParseNot(),
-            '(' => ParseGroup(),
-            '$' => ParseVariable(),
-            '?' => ParseConditional(),
-            '#' => ParseCount(),
-            '"' => ParseInterpolatedString(),
-            _ when char.IsDigit(c) || c == '-' || c == '.' => ParseNumeric(),
-            _ => throw ParseException("Expected '!', '(', '$', '?', '#', '\"', '-' or a digit"),
-        };
-    }
+                    if (_index >= _length || next != expect)
+                    {
+                        throw ParseException($"Expected '{expect}'");
+                    }
 
-    private IExpression ParseGroup()
-    {
-        Read('(', IgnoreWhiteSpace.After);
-        var expression = ParseBoolean();
-        Read(')', IgnoreWhiteSpace.Before);
+                    switch (c)
+                    {
+                        case '&': @operator = BinaryOperator.And; break;
+                        case '|': @operator = BinaryOperator.Or; break;
+                        case '=': @operator = BinaryOperator.Equal; break;
+                        case '!': @operator = BinaryOperator.NotEqual; break;
+                        case '<': @operator = BinaryOperator.LessThanOrEqual; break;
+                        case '>': @operator = BinaryOperator.GreaterThanOrEqual; break;
+                        default: throw new NotImplementedException($"Unknown binary operator: '{c}{_input[_index]}'");
+                    };
 
-        // A group is only for precedence, the final result is
-        // simply the contained expression.
-        return expression;
-    }
+                    _index++;
 
-    private bool TryReadBinaryOperator([NotNullWhen(true)] out BinaryOperator? @operator, BinaryOperator[]? allowedOperators = null)
-    {
-        @operator = null;
+                done:
+                    if (allowedOperators != null && !allowedOperators.Contains(@operator.Value))
+                    {
+                        goto rewind;
+                    }
 
-        if (_index >= _length)
-        {
-            return false;
-        }
+                    SkipWhiteSpace();
+                    return true;
 
-        int checkpoint = _index;
-
-        SkipWhiteSpace();
-
-        if (_index >= _length)
-        {
-            return false;
-        }
-
-        var c = _input[_index];
-        switch (c)
-        {
-            case '&':
-            case '|':
-            case '=':
-            case '!':
-            case '<':
-            case '>':
-
-                _index++;
-
-                var next = CharAt(_index);
-
-                if ((c == '<' || c == '>') && next != '=')
-                {
-                    @operator = c == '<' ? BinaryOperator.LessThan : BinaryOperator.GreaterThan;
-                    goto done;
-                }
-
-                var expect = c switch
-                {
-                    _ when c == '!' || c == '>' || c == '<' => '=',
-                    _ => c,
-                };
-
-                if (_index >= _length || next != expect)
-                {
-                    throw ParseException($"Expected '{expect}'");
-                }
-
-                @operator = c switch
-                {
-                    '&' => BinaryOperator.And,
-                    '|' => BinaryOperator.Or,
-                    '=' => BinaryOperator.Equal,
-                    '!' => BinaryOperator.NotEqual,
-                    '<' => BinaryOperator.LessThanOrEqual,
-                    '>' => BinaryOperator.GreaterThanOrEqual,
-                    _ => throw new NotImplementedException($"Unknown binary operator: '{c}{_input[_index]}'"),
-                };
-
-                _index++;
-
-            done:
-                if (allowedOperators is not null && !allowedOperators.Contains(@operator.Value))
-                {
+                default:
                     goto rewind;
-                }
+            }
 
+        rewind:
+            _index = checkpoint;
+            return false;
+        }
+
+        private void Read(char target, IgnoreWhiteSpace whiteSpace = IgnoreWhiteSpace.None)
+        {
+            if (whiteSpace.HasFlag(IgnoreWhiteSpace.Before))
+            {
                 SkipWhiteSpace();
-                return true;
+            }
 
-            default:
-                goto rewind;
-        }
+            if (_index >= _length)
+            {
+                throw ParseException($"Expected '{target}'");
+            }
 
-    rewind:
-        _index = checkpoint;
-        return false;
-    }
+            var c = _input[_index];
+            if (c != target)
+            {
+                throw ParseException($"Unexpected character '{c}', expected '{target}'");
+            }
 
-    private void Read(char target, IgnoreWhiteSpace whiteSpace = IgnoreWhiteSpace.None)
-    {
-        if (whiteSpace.HasFlag(IgnoreWhiteSpace.Before))
-        {
-            SkipWhiteSpace();
-        }
+            _index++;
 
-        if (_index >= _length)
-        {
-            throw ParseException($"Expected '{target}'");
-        }
-
-        var c = _input[_index];
-        if (c != target)
-        {
-            throw ParseException($"Unexpected character '{c}', expected '{target}'");
-        }
-
-        _index++;
-
-        if (whiteSpace.HasFlag(IgnoreWhiteSpace.After))
-        {
-            SkipWhiteSpace();
-        }
-    }
-
-    private bool TryRead(char target, IgnoreWhiteSpace whiteSpace = IgnoreWhiteSpace.None)
-    {
-        var checkpoint = _index;
-
-        if (whiteSpace.HasFlag(IgnoreWhiteSpace.Before))
-        {
-            SkipWhiteSpace();
-        }
-
-        if (_index < _length && _input[_index++] == target)
-        {
             if (whiteSpace.HasFlag(IgnoreWhiteSpace.After))
             {
                 SkipWhiteSpace();
             }
-
-            // OK
-            return true;
         }
 
-        // Failed: rewind
-        _index = checkpoint;
-        return false;
-    }
-
-    private void ReadDigits()
-    {
-        var start = _index;
-
-        while (_index < _length && char.IsDigit(_input[_index]))
+        private bool TryRead(char target, IgnoreWhiteSpace whiteSpace = IgnoreWhiteSpace.None)
         {
-            _index++;
-        }
+            var checkpoint = _index;
 
-        if (_index == start)
-        {
-            throw ParseException("Expected a digit");
-        }
-    }
+            if (whiteSpace.HasFlag(IgnoreWhiteSpace.Before))
+            {
+                SkipWhiteSpace();
+            }
 
-    private void SkipWhiteSpace()
-    {
-        while (_index < _length && char.IsWhiteSpace(_input[_index]))
-        {
-            _index++;
-        }
-    }
+            if (_index < _length && _input[_index++] == target)
+            {
+                if (whiteSpace.HasFlag(IgnoreWhiteSpace.After))
+                {
+                    SkipWhiteSpace();
+                }
 
-    private bool SkipChar(char c)
-    {
-        if (_index >= _length || _input[_index] != c)
-        {
+                // OK
+                return true;
+            }
+
+            // Failed: rewind
+            _index = checkpoint;
             return false;
         }
 
-        _index++;
-        return true;
-    }
+        private void ReadDigits()
+        {
+            var start = _index;
 
-    private ParseException ParseException(string? details = null)
-        => Exceptions.ParseException.Create(_input, _index, details);
+            while (_index < _length && char.IsDigit(_input[_index]))
+            {
+                _index++;
+            }
 
-    [Flags]
-    private enum IgnoreWhiteSpace
-    {
-        None = 0,
-        Before = 1,
-        After = 2,
-        Around = Before | After
+            if (_index == start)
+            {
+                throw ParseException("Expected a digit");
+            }
+        }
+
+        private void SkipWhiteSpace()
+        {
+            while (_index < _length && char.IsWhiteSpace(_input[_index]))
+            {
+                _index++;
+            }
+        }
+
+        private bool SkipChar(char c)
+        {
+            if (_index >= _length || _input[_index] != c)
+            {
+                return false;
+            }
+
+            _index++;
+            return true;
+        }
+
+        private ParseException ParseException(string details = null)
+            => Exceptions.ParseException.Create(_input, _index, details);
+
+        [Flags]
+        private enum IgnoreWhiteSpace
+        {
+            None = 0,
+            Before = 1,
+            After = 2,
+            Around = Before | After
+        }
     }
 }
