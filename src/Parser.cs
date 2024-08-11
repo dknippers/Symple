@@ -22,6 +22,7 @@ namespace Symple
             public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
             public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
             public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
+            public static readonly Lazy<HashSet<char>> All = new Lazy<HashSet<char>>(() => new HashSet<char>(Default.Concat(Nested).Concat(Interpolated)));
         }
 
         internal Parser(string template)
@@ -59,6 +60,33 @@ namespace Symple
                 expression = null;
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Escapes any special characters in the input string.
+        /// </summary>
+        /// <param name="input">Input</param>
+        /// <returns>Escaped input</returns>
+        public static string Escape(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return input;
+            }
+
+            var sb = new StringBuilder(input.Length * 2);
+
+            foreach (var c in input)
+            {
+                if (SpecialChars.All.Value.Contains(c))
+                {
+                    sb.Append('\\');
+                }
+
+                sb.Append(c);
+            }
+
+            return sb.ToString();
         }
 
         private IExpression ParseTemplate(bool nested = false)
@@ -166,12 +194,6 @@ namespace Symple
 
                 if (c == '\\')
                 {
-                    if (next is null || (next != terminator && Array.IndexOf(specialChars, next) == -1))
-                    {
-                        // It is not escaping a special character, just include it in the output as a backslash.
-                        goto include;
-                    }
-
                     // Append everything before and after backslash but not backslash itself.
                     _ = sb.Append(_input.Substring(start, idx - start)).Append(next);
                     _index = idx + 2;
@@ -190,7 +212,6 @@ namespace Symple
                     break;
                 }
 
-            include:
                 // Character is not special; will be part of StringExpression.
                 _index = idx + 1;
             }
