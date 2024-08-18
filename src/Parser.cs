@@ -21,7 +21,7 @@ namespace Symple
         {
             public static readonly char[] Default = new[] { '$', '?', '@', '#', '\\' };
             public static readonly char[] Nested = Default.Concat(new[] { CLOSE }).ToArray();
-            public static readonly char[] Interpolated = Default.Concat(new[] { '"' }).ToArray();
+            public static readonly char[] Interpolated = new[] { '\\', '"', '$' };
             public static readonly Lazy<HashSet<char>> All = new Lazy<HashSet<char>>(() => new HashSet<char>(Default.Concat(Nested).Concat(Interpolated)));
         }
 
