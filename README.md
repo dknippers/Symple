@@ -178,14 +178,16 @@ The only characters possible to escape using `\` in Symple are:
 - `}`
 - `\`
 
-However, there is generally **no need** to escape these characters when naturally occurring in your template. Even `\` itself does not need to be escaped if it isn't escaping a special character itself. So a template like `@"C:\Windows"` will just output `C:\Windows`, the `\` does not act as an escape character because `W` is not a special character.
+However, there is generally **no need** to escape these characters when naturally occurring in your template. The exception is the escape character `\`, which always escapes the next character thus always needs to be escaped itself. That is, to render `C:\Windows` the template needs to be `C:\\Windows`.
 
-Because Symple uses 2 or more characters for most of its syntax there is no need to escape any of the special characters when they appear by themselves except `"` (_only_ inside a condition) and `}` (_only_ inside an `if` or `else` branch).
+Because Symple uses 2 or more characters for most of its syntax there is no need to escape any of the other special characters when they appear by themselves except `"` (_only_ inside a condition) and `}` (_only_ inside an `if` or `else` branch).
 
 For example, the Symple parser understands that `name@example.com` is not a loop expression, just like `$100` cannot be a variable because `100` is not a valid identifier. Likewise, using a `?` in a sentence or using `#hashtag` is not a problem.
 
 The only things you actually need to escape are these sequences if you want them to render as-is without being considered Symple syntax:
 
+- `\` -> `\\`
+  - As mentioned above the escape character `\` always needs to be escaped
 - `$var` -> `\$var`
   - `$` followed by a letter or `_` must be escaped to not be considered a variable
 - `?[` -> `\?[`
@@ -197,4 +199,7 @@ The only things you actually need to escape are these sequences if you want them
 - `?["str with "quotes""]` -> `?["str with \"quotes\""]`
   - A string inside a condition needs to escape `"`.
 - `?[1] { use } in here }` -> `?[1] { use \} in here }`
+
   - `}` inside an `if` or `else` branch needs to be escaped
+
+You can use `Parser.Escape(string input)` to escape special characters.
