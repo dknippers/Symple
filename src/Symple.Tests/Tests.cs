@@ -79,4 +79,100 @@ public class Tests
 
         Assert.Equal(EXPECTED, output);
     }
+
+    [Theory]
+    [InlineData("?[1>0]{1}{0}", "1")]
+    [InlineData("?[1>1]{1}{0}", "0")]
+    [InlineData("?[0>1]{1}{0}", "0")]
+    public void Should_Support_GreaterThan(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1>=0]{1}{0}", "1")]
+    [InlineData("?[1>=1]{1}{0}", "1")]
+    [InlineData("?[0>=1]{1}{0}", "0")]
+    public void Should_Support_GreaterThanOrEqual(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1<0]{1}{0}", "0")]
+    [InlineData("?[1<1]{1}{0}", "0")]
+    [InlineData("?[0<1]{1}{0}", "1")]
+    public void Should_Support_LessThan(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1<=0]{1}{0}", "0")]
+    [InlineData("?[1<=1]{1}{0}", "1")]
+    [InlineData("?[0<=1]{1}{0}", "1")]
+    public void Should_Support_LessThanOrEqual(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1==0]{1}{0}", "0")]
+    [InlineData("?[1==1]{1}{0}", "1")]
+    public void Should_Support_Equal(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1!=0]{1}{0}", "1")]
+    [InlineData("?[1!=1]{1}{0}", "0")]
+    public void Should_Support_NotEqual(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1&&1]{1}{0}", "1")]
+    [InlineData("?[1&&0]{1}{0}", "0")]
+    public void Should_Support_And(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[1||1]{1}{0}", "1")]
+    [InlineData("?[1||0]{1}{0}", "1")]
+    public void Should_Support_Or(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("?[0&&0||1]{1}{0}", "1")]
+    [InlineData("?[1||0&&0]{1}{0}", "1")]
+    [InlineData("?[(1||0)&&0]{1}{0}", "0")]
+    public void Should_Support_Operator_Precedence(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("\\$", "$")]
+    [InlineData("\\a", "a")]
+    [InlineData("\\\\", "\\")]
+    public void Should_Escape_Using_Backslash(string input, string expected)
+    {
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
 }
