@@ -22,7 +22,7 @@
   </PropertyGroup>
 
   <ItemGroup Label="NuGet Package files">
-    <None Include="$(MSBuildProjectDir)..\README.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildProjectDir)..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
