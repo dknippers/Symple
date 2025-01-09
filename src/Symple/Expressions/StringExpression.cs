@@ -24,7 +24,7 @@ namespace Symple.Expressions
 
         public override string ToString()
         {
-            return new StringBuilder().Append('"').Append(Value.Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n")).Append('"').ToString();
+            return new StringBuilder().Append(Value.Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n")).ToString();
         }
     }
 }

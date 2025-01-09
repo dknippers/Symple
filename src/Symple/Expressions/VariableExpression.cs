@@ -9,26 +9,28 @@ namespace Symple.Expressions
 {
     public class VariableExpression : INumericExpression
     {
-        public VariableExpression(string name, string[] propertyNames)
+        public VariableExpression(string name, IExpression[] propertyAccessors)
         {
             Name = name;
-            PropertyNames = propertyNames;
+            PropertyAccessors = propertyAccessors;
         }
 
         public string Name { get; }
 
-        public string[] PropertyNames { get; }
+        public IExpression[] PropertyAccessors { get; }
 
         public object GetValue(Dictionary<string, object> variables)
         {
             var obj = variables.TryGetValue(Name, out var v) ? v : null;
-            if (obj is null || !(PropertyNames?.Length > 0))
+            if (obj is null || !(PropertyAccessors?.Length > 0))
             {
                 return obj;
             }
 
-            foreach (var propertyName in PropertyNames)
+            foreach (var propertyAccessor in PropertyAccessors)
             {
+                var propertyName = propertyAccessor.Render(variables);
+
                 if (string.IsNullOrEmpty(propertyName))
                 {
                     break;
@@ -120,9 +122,19 @@ namespace Symple.Expressions
         {
             var sb = new StringBuilder().Append('$').Append(Name);
 
-            if (PropertyNames?.Length > 0)
+            if (PropertyAccessors.Length > 0)
             {
-                _ = sb.Append('.').Append(string.Join(".", PropertyNames));
+                foreach (var pa in PropertyAccessors)
+                {
+                    if (pa is VariableExpression)
+                    {
+                        sb.Append('[').Append(pa.ToString()).Append(']');
+                    }
+                    else
+                    {
+                        sb.Append('.').Append(pa.ToString());
+                    }
+                }
             }
 
             return sb.ToString();

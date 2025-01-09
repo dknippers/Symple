@@ -1,10 +1,10 @@
 using Symple.Exceptions;
 using Symple.Expressions;
-using System.Globalization;
-using System.Text;
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 
 namespace Symple
 {
@@ -219,29 +219,34 @@ namespace Symple
             return new StringExpression(sb.ToString());
         }
 
-        private VariableExpression ParseVariable(bool allowProperties = true)
+        private VariableExpression ParseVariable()
         {
             Read('$');
 
             // Allow optional [ to wrap a variable, i.e. $[var].
             var wrapped = SkipChar('[');
 
-            var name = ParseIdentifier();
+            var identifier = ParseIdentifier();
 
-            List<string> propertyNames = null;
-            if (allowProperties)
+            var propertyAccessors = new List<IExpression>();
+
+            while (TryRead('.'))
             {
-                propertyNames = new List<string>();
-                while (TryRead('.'))
+                if (_index == _length || (
+                    !IsStartOfIdentifier(_input[_index]) &&
+                    !IsStartOfVariable(_input[_index], CharAt(_index + 1))
+                ))
                 {
-                    if (_index == _length || !IsStartOfIdentifier(_input[_index]))
-                    {
-                        // This is not a property access operation.
-                        _index--;
-                        break;
-                    }
-                    propertyNames.Add(ParseIdentifier());
+                    // This is not a property access operation.
+                    _index--;
+                    break;
                 }
+
+                var propertyAccessor = IsStartOfIdentifier(_input[_index])
+                    ? ParseIdentifier() as IExpression
+                    : ParseVariable();
+
+                propertyAccessors.Add(propertyAccessor);
             }
 
             if (wrapped)
@@ -250,7 +255,7 @@ namespace Symple
                 Read(']');
             }
 
-            return new VariableExpression(name, propertyNames?.ToArray());
+            return new VariableExpression(identifier.Value, propertyAccessors?.ToArray());
         }
 
         private IExpression ParseNumeric()
@@ -272,7 +277,7 @@ namespace Symple
             return new NumericExpression(value);
         }
 
-        private string ParseIdentifier()
+        private StringExpression ParseIdentifier()
         {
             var start = _index;
 
@@ -294,7 +299,9 @@ namespace Symple
                 throw ParseException("Expected identifier");
             }
 
-            return _input.Substring(start, _index - start);
+            var identifier = _input.Substring(start, _index - start);
+
+            return new StringExpression(identifier);
         }
 
         private static bool IsStartOfIdentifier(char? c)
@@ -326,7 +333,8 @@ namespace Symple
         {
             Read('@');
             Read('[', IgnoreWhiteSpace.After);
-            var identifier = ParseVariable(false).Name;
+            Read('$');
+            var identifier = ParseIdentifier();
             Read(':', IgnoreWhiteSpace.Around);
             var collection = ParseVariable();
             Read(']', IgnoreWhiteSpace.Around);
@@ -334,7 +342,7 @@ namespace Symple
             var template = ParseTemplate(true);
             Read(CLOSE);
 
-            return new LoopExpression(identifier, collection, template);
+            return new LoopExpression(identifier.Value, collection, template);
         }
 
         private CountExpression ParseCount()

@@ -64,20 +64,23 @@ public class Tests
         Assert.Equal(EXPECTED, output);
     }
 
-    [Fact]
-    public void Should_Support_Simple_Loop()
+    [Theory]
+    [InlineData(@"@[$item : $items]{$item,}", "1,2,3,4,5,6,7,8,9,10,")]
+    [InlineData(@"@[$item : $nested.items]{$item,}", "1,2,3,4,5,6,7,8,9,10,")]
+    public void Should_Support_Simple_Loop(string input, string expected)
     {
-        const string INPUT = @"@[$item : $items]{$item,}";
-        const string EXPECTED = @"1,2,3,4,5,6,7,8,9,10,";
-
         var variables = new Dictionary<string, object>
         {
             ["items"] = Enumerable.Range(1, 10),
+            ["nested"] = new
+            {
+                items = Enumerable.Range(1, 10)
+            }
         };
 
-        var output = Parser.Parse(INPUT).Render(variables);
+        var output = Parser.Parse(input).Render(variables);
 
-        Assert.Equal(EXPECTED, output);
+        Assert.Equal(expected, output);
     }
 
     [Theory]
@@ -173,6 +176,37 @@ public class Tests
     public void Should_Escape_Using_Backslash(string input, string expected)
     {
         var output = Parser.Parse(input).Render([]);
+        Assert.Equal(expected, output);
+    }
+
+    [Theory]
+    [InlineData("$x.y.z", "OK")]
+    [InlineData("$x.$[vars.y].z", "OK")]
+    [InlineData("$x.y.$[vars.z]", "OK")]
+    [InlineData("$x.$[vars.y].$[vars.z]", "OK")]
+    [InlineData("$[vars.x].$[vars.y].$[vars.z]", "x.y.z")]
+    [InlineData("$x.$y.z", "{ y = { z = OK } }")]
+    public void Should_Support_Property_Accessors(string input, string expected)
+    {
+        var variables = new Dictionary<string, object>
+        {
+            ["x"] = new
+            {
+                y = new
+                {
+                    z = "OK"
+                }
+            },
+            ["vars"] = new
+            {
+                x = "x",
+                y = "y",
+                z = "z"
+            }
+        };
+
+        var output = Parser.Parse(input).Render(variables);
+
         Assert.Equal(expected, output);
     }
 }
