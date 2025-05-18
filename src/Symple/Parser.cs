@@ -146,7 +146,8 @@ namespace Symple
                     break;
                 }
 
-                IExpression expression = c == '$'
+                var next = CharAt(_index + 1);
+                IExpression expression = IsStartOfVariable(c, next)
                     ? ParseVariable() as IExpression
                     : ParseString('"', SpecialChars.Interpolated);
 
