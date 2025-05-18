@@ -175,4 +175,23 @@ public class Tests
         var output = Parser.Parse(input).Render([]);
         Assert.Equal(expected, output);
     }
+
+    [Theory]
+    [InlineData("?[$x == \"@[]Alph$obj.a?[#[$\"]{1}{0}", "1")]
+    [InlineData("?[\"$\" == $dollar]{1}{0}", "1")]
+    public void Should_Support_InterpolatedString(string input, string expected)
+    {
+        var variables = new Dictionary<string, object?>
+        {
+            ["x"] = "@[]Alpha?[#[$",
+            ["obj"] = new
+            {
+                a = "a"
+            },
+            ["dollar"] = "$"
+        };
+
+        var output = Parser.Parse(input).Render(variables);
+        Assert.Equal(expected, output);
+    }
 }
