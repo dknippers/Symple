@@ -1,10 +1,10 @@
 using Symple.Exceptions;
 using Symple.Expressions;
-using System.Globalization;
-using System.Text;
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 
 namespace Symple
 {
@@ -100,7 +100,7 @@ namespace Symple
             {
                 var c = _input[_index];
 
-                if (nested && c == CLOSE)
+                if (c == terminator)
                 {
                     break;
                 }
@@ -228,20 +228,16 @@ namespace Symple
 
             var name = ParseIdentifier();
 
-            List<string> propertyNames = null;
-            if (allowProperties)
+            var propertyNames = new List<string>();
+            while (TryRead('.'))
             {
-                propertyNames = new List<string>();
-                while (TryRead('.'))
+                if (_index == _length || !IsStartOfIdentifier(_input[_index]))
                 {
-                    if (_index == _length || !IsStartOfIdentifier(_input[_index]))
-                    {
-                        // This is not a property access operation.
-                        _index--;
-                        break;
-                    }
-                    propertyNames.Add(ParseIdentifier());
+                    // This is not a property access operation.
+                    _index--;
+                    break;
                 }
+                propertyNames.Add(ParseIdentifier());
             }
 
             if (wrapped)
@@ -326,7 +322,9 @@ namespace Symple
         {
             Read('@');
             Read('[', IgnoreWhiteSpace.After);
-            var identifier = ParseVariable(false).Name;
+
+            Read('$');
+            var identifier = ParseIdentifier();
             Read(':', IgnoreWhiteSpace.Around);
             var collection = ParseVariable();
             Read(']', IgnoreWhiteSpace.Around);
@@ -465,7 +463,7 @@ namespace Symple
                     if (char.IsDigit(c) || c == '-' || c == '.') return ParseNumeric();
 
                     throw ParseException("Expected '!', '(', '$', '?', '#', '\"', '-' or a digit");
-            };
+            }
         }
 
         private IExpression ParseGroup()
@@ -533,7 +531,7 @@ namespace Symple
                         case '<': @operator = BinaryOperator.LessThanOrEqual; break;
                         case '>': @operator = BinaryOperator.GreaterThanOrEqual; break;
                         default: throw new NotImplementedException($"Unknown binary operator: '{c}{_input[_index]}'");
-                    };
+                    }
 
                     _index++;
 
