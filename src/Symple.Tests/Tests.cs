@@ -1,3 +1,5 @@
+using Symple.Exceptions;
+
 namespace Symple.Tests;
 
 public class Tests
@@ -170,10 +172,18 @@ public class Tests
     [InlineData("\\$", "$")]
     [InlineData("\\a", "a")]
     [InlineData("\\\\", "\\")]
+    [InlineData("abc\\$x\\y", "abc$xy")]
     public void Should_Escape_Using_Backslash(string input, string expected)
     {
         var output = Parser.Parse(input).Render([]);
         Assert.Equal(expected, output);
+    }
+
+    [Fact]
+    public void Should_Throw_On_Lone_Backslash()
+    {
+        var ex = Assert.Throws<ParseException>(() => Parser.Parse("\\").Render([]));
+        Assert.Contains("Expected escaped character", ex.Message);
     }
 
     [Theory]
