@@ -13,6 +13,7 @@ namespace Symple
         private readonly string _input;
         private int _index;
         private readonly int _length;
+        private readonly StringBuilder _sb = new StringBuilder();
 
         private const char OPEN = '{';
         private const char CLOSE = '}';
@@ -163,30 +164,28 @@ namespace Symple
 
         private StringExpression ParseString(char? terminator, char[] specialChars)
         {
-            var sb = new StringBuilder();
+            _sb.Clear();
 
             var start = _index;
             while (true)
             {
                 if (_index >= _length)
                 {
-                    _ = sb.Append(_input.Substring(start, _length - start));
+                    _sb.Append(_input, start, _length - start);
                     break;
                 }
 
                 var idx = _input.IndexOfAny(specialChars, _index);
                 if (idx == -1)
                 {
-                    var substr = _input.Substring(start, _length - start);
-                    _index = _length;
-
-                    if (sb.Length == 0)
+                    if (start == 0)
                     {
-                        // No special chars in the string at all just return it.
-                        return new StringExpression(substr);
+                        _index = _length;
+                        return new StringExpression(_input);
                     }
 
-                    _ = sb.Append(substr);
+                    _sb.Append(_input, start, _length - start);
+                    _index = _length;
                     break;
                 }
 
@@ -195,8 +194,14 @@ namespace Symple
 
                 if (c == '\\')
                 {
-                    // Append everything before and after backslash but not backslash itself.
-                    _ = sb.Append(_input.Substring(start, idx - start)).Append(next);
+                    if (next == null)
+                    {
+                        _index = idx + 1;
+                        throw ParseException("Expected escaped character");
+                    }
+
+                    // Append everything before and the next character after backslash but not backslash itself.
+                    _sb.Append(_input, start, idx - start).Append(next.Value);
                     _index = idx + 2;
                     start = _index;
                     continue;
@@ -208,7 +213,7 @@ namespace Symple
                     IsStartOfVariable(c, next) ||
                     IsStartOfCount(c, next, CharAt(idx + 2)))
                 {
-                    _ = sb.Append(_input.Substring(start, idx - start));
+                    _sb.Append(_input, start, idx - start);
                     _index = idx;
                     break;
                 }
@@ -217,10 +222,11 @@ namespace Symple
                 _index = idx + 1;
             }
 
-            return new StringExpression(sb.ToString());
+            return new StringExpression(_sb.ToString());
         }
 
-        private VariableExpression ParseVariable(bool allowProperties = true)
+
+        private VariableExpression ParseVariable()
         {
             Read('$');
 
