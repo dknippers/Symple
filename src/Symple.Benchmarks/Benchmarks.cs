@@ -26,6 +26,11 @@ public class Benchmarks
     </li>}
 </ul>";
 
+        for (var i = 0; i < 5; i++)
+        {
+            _template += _template;
+        }
+
         _variables = new Dictionary<string, object>
         {
             ["planets"] = new[]
