@@ -4,13 +4,14 @@ namespace Symple.Tests;
 
 public class Tests
 {
-    [Fact]
-    public void Should_Render_Template_Without_Special_Characters_Unchanged()
+    [Theory]
+    [InlineData("Hello, World!")]
+    [InlineData("Is this item $2.99? Yes.")]
+    [InlineData("@?$# -> OK")]
+    public void Should_Render_Template_Without_Special_Characters_Unchanged(string input)
     {
-        const string INPUT = @"Hello, World!";
-        const string EXPECTED = INPUT;
-        var output = Parser.Parse(INPUT).Render([]);
-        Assert.Equal(EXPECTED, output);
+        var output = Parser.Parse(input).Render([]);
+        Assert.Equal(input, output);
     }
 
     [Fact]
